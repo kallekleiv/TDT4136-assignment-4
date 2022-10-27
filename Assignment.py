@@ -3,6 +3,7 @@
 # Updated by Xavier Sánchez Díaz
 
 import copy
+from http.client import FAILED_DEPENDENCY
 from itertools import product as prod
 
 
@@ -17,6 +18,9 @@ class CSP:
         # self.constraints[i][j] is a list of legal value pairs for
         # the variable pair (i, j)
         self.constraints = {}
+
+        self.backtracks = 0
+        self.failed_backtracks = 0
 
     def add_variable(self, name: str, domain: list):
         """Add a new variable to the CSP.
@@ -78,8 +82,7 @@ class CSP:
         """
         return [(i, var) for i in self.constraints[var]]
 
-    def add_constraint_one_way(self, i: str, j: str,
-                               filter_function: callable):
+    def add_constraint_one_way(self, i: str, j: str, filter_function: callable):
         """Add a new constraint between variables 'i' and 'j'. Legal
         values are specified by supplying a function 'filter_function',
         that should return True for legal value pairs, and False for
@@ -105,15 +108,16 @@ class CSP:
             # First, get a list of all possible pairs of values
             # between variables i and j
             self.constraints[i][j] = self.get_all_possible_pairs(
-                                        self.domains[i],
-                                        self.domains[j])
+                self.domains[i], self.domains[j]
+            )
 
         # Next, filter this list of value pairs through the function
         # 'filter_function', so that only the legal value pairs remain
-        self.constraints[i][j] = list(filter(lambda
-                                             value_pair:
-                                             filter_function(*value_pair),
-                                             self.constraints[i][j]))
+        self.constraints[i][j] = list(
+            filter(
+                lambda value_pair: filter_function(*value_pair), self.constraints[i][j]
+            )
+        )
 
     def add_all_different_constraint(self, var_list: list):
         """Add an Alldiff constraint between all of the variables in the
@@ -170,7 +174,36 @@ class CSP:
         iterations of the loop.
         """
         # TODO: YOUR CODE HERE
-        pass
+        self.backtracks += 1
+
+        if self.is_complete(assignment):
+            print("\nBacktracks: " + str(self.backtracks))
+            print("Failed backtracks: " + str(self.failed_backtracks) + "\n")
+            return assignment
+
+        var = self.select_unassigned_variable(assignment)
+
+        for value in assignment[var]:
+            assignment_copy = copy.deepcopy(assignment)
+            assignment_copy[var] = [value]
+            inferences = self.inference(assignment_copy, self.get_all_arcs())
+
+            if inferences:
+                result = self.backtrack(assignment_copy)
+                if result:
+                    return result
+
+        self.failed_backtracks += 1
+        return False
+
+    def is_complete(self, assignment):
+        """ Checks whether the assignment is complete, by making sure
+        there is only one variable for each value."""
+        complete = True
+        for variable in assignment.values():
+            if len(variable) > 1:
+                complete = False
+        return complete
 
     def select_unassigned_variable(self, assignment):
         """The function 'Select-Unassigned-Variable' from the pseudocode
@@ -179,7 +212,9 @@ class CSP:
         of legal values has a length greater than one.
         """
         # TODO: YOUR CODE HERE
-        pass
+        for variable in assignment:
+            if len(assignment[variable]) > 1:
+                return variable
 
     def inference(self, assignment, queue):
         """The function 'AC-3' from the pseudocode in the textbook.
@@ -188,7 +223,15 @@ class CSP:
         is the initial queue of arcs that should be visited.
         """
         # TODO: YOUR CODE HERE
-        pass
+        while len(queue) > 0:
+            i, j = queue.pop()
+            if self.revise(assignment, i, j):
+                if len(assignment[i]) == 0:
+                    return False
+                for k in self.get_all_neighboring_arcs(i):
+                    if k[0] != i:
+                        queue.append((k[0], i))
+        return True
 
     def revise(self, assignment, i, j):
         """The function 'Revise' from the pseudocode in the textbook.
@@ -200,7 +243,12 @@ class CSP:
         legal values in 'assignment'.
         """
         # TODO: YOUR CODE HERE
-        pass
+        revised = False
+        for x in assignment[i]:
+            if not any([(x != y) for y in assignment[j]]):
+                assignment[i].remove(x)
+                revised = True
+        return revised
 
 
 def create_map_coloring_csp():
@@ -209,10 +257,9 @@ def create_map_coloring_csp():
     develop your code.
     """
     csp = CSP()
-    states = ['WA', 'NT', 'Q', 'NSW', 'V', 'SA', 'T']
-    edges = {'SA': ['WA', 'NT', 'Q', 'NSW', 'V'],
-             'NT': ['WA', 'Q'], 'NSW': ['Q', 'V']}
-    colors = ['red', 'green', 'blue']
+    states = ["WA", "NT", "Q", "NSW", "V", "SA", "T"]
+    edges = {"SA": ["WA", "NT", "Q", "NSW", "V"], "NT": ["WA", "Q"], "NSW": ["Q", "V"]}
+    colors = ["red", "green", "blue"]
     for state in states:
         csp.add_variable(state, colors)
     for state, other_states in edges.items():
@@ -237,28 +284,25 @@ def create_sudoku_csp(filename: str) -> CSP:
         A CSP instance
     """
     csp = CSP()
-    board = list(map(lambda x: x.strip(), open(filename, 'r')))
+    board = list(map(lambda x: x.strip(), open(filename, "r")))
 
     for row in range(9):
         for col in range(9):
-            if board[row][col] == '0':
-                csp.add_variable('%d-%d' % (row, col), list(map(str,
-                                                                range(1, 10))))
+            if board[row][col] == "0":
+                csp.add_variable("%d-%d" % (row, col), list(map(str, range(1, 10))))
             else:
-                csp.add_variable('%d-%d' % (row, col), [board[row][col]])
+                csp.add_variable("%d-%d" % (row, col), [board[row][col]])
 
     for row in range(9):
-        csp.add_all_different_constraint(['%d-%d' % (row, col)
-                                          for col in range(9)])
+        csp.add_all_different_constraint(["%d-%d" % (row, col) for col in range(9)])
     for col in range(9):
-        csp.add_all_different_constraint(['%d-%d' % (row, col)
-                                         for row in range(9)])
+        csp.add_all_different_constraint(["%d-%d" % (row, col) for row in range(9)])
     for box_row in range(3):
         for box_col in range(3):
             cells = []
             for row in range(box_row * 3, (box_row + 1) * 3):
                 for col in range(box_col * 3, (box_col + 1) * 3):
-                    cells.append('%d-%d' % (row, col))
+                    cells.append("%d-%d" % (row, col))
             csp.add_all_different_constraint(cells)
 
     return csp
@@ -271,9 +315,9 @@ def print_sudoku_solution(solution):
     """
     for row in range(9):
         for col in range(9):
-            print(solution['%d-%d' % (row, col)][0], end=" "),
+            print(solution["%d-%d" % (row, col)][0], end=" "),
             if col == 2 or col == 5:
-                print('|', end=" "),
+                print("|", end=" "),
         print("")
         if row == 2 or row == 5:
-            print('------+-------+------')
+            print("------+-------+------")
