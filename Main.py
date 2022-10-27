@@ -2,12 +2,11 @@ import Assignment
 
 
 def main():
-
     sudokus = {
-        "Easy: ": "easy.txt",
-        "Medium: ": "medium.txt",
-        "Hard: ": "hard.txt",
-        "Very hard: ": "veryhard.txt",
+        "     ---Easy---": "easy.txt",
+        "   ---Medium---": "medium.txt",
+        "     ---Hard---": "hard.txt",
+        "   ---Very hard---": "veryhard.txt",
     }
 
     for difficulty, filename in sudokus.items():

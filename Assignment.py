@@ -146,6 +146,8 @@ class CSP:
         # values that are not arc-consistent to begin with
         self.inference(assignment, self.get_all_arcs())
 
+        self.average_domain_size(assignment)
+
         # Call backtrack with the partial assignment 'assignment'
         return self.backtrack(assignment)
 
@@ -174,13 +176,12 @@ class CSP:
         iterations of the loop.
         """
         # TODO: YOUR CODE HERE
-        self.backtracks += 1
-
         if self.is_complete(assignment):
-            print("\nBacktracks: " + str(self.backtracks))
+            print("Backtracks: " + str(self.backtracks))
             print("Failed backtracks: " + str(self.failed_backtracks) + "\n")
             return assignment
 
+        self.backtracks += 1
         var = self.select_unassigned_variable(assignment)
 
         for value in assignment[var]:
@@ -196,9 +197,19 @@ class CSP:
         self.failed_backtracks += 1
         return False
 
+    def average_domain_size(self, assignment):
+        """Checks each variable's domain size and averages the total.
+        """
+        total_domains = 0
+
+        for dom in assignment.values():
+            total_domains += len(dom)  
+        print("Average domain: " + str(round(total_domains / len(assignment.values()), 2)))
+
     def is_complete(self, assignment):
-        """ Checks whether the assignment is complete, by making sure
-        there is only one variable for each value."""
+        """Checks whether the assignment is complete, by making sure
+        there is only one variable for each value.
+        """
         complete = True
         for variable in assignment.values():
             if len(variable) > 1:
